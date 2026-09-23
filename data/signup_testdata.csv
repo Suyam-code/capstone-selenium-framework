@@ -1,0 +1,4 @@
+name,email,expect_success
+Suyam Lodha,suyam.lodha19valid@gmail.com,true
+,suyam.lodha19noname@gmail.com,false
+Suyam Lodha,not-an-email,false

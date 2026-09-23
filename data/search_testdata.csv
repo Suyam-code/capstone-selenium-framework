@@ -1,0 +1,5 @@
+search_term,expect_results
+Dress,true
+Top,true
+Jeans,true
+zzzznotarealproduct,false
