@@ -1,19 +1,18 @@
+import time
 import pytest
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 from pages.home_page import HomePage
 from pages.login_page import LoginPage
 
-# using my real gmail with a +tag so I can actually check if the signup email
-# lands, without spamming a fake inbox I can't check. re-running with the SAME
-# tag will hit the "already exists" case on the site, which is why the two
-# tests below share this exact address on purpose.
-MY_TEST_EMAIL = "suyam.lodha19@gmail.com"
+RUN_STAMP = int(time.time())
+MY_TEST_EMAIL = f"suyam.lodha19.{RUN_STAMP}@gmail.com"
 
 
 def test_login_page_loads(driver, base_url):
     """just a sanity check that the login form actually shows up before I bother
-    testing anything on top of it. if this fails first, everything after it
-    is probably going to fail too, so good to have this as test #1."""
+    testing anything on top of it."""
     home = HomePage(driver)
     home.load(base_url)
     home.go_to_login()
@@ -42,32 +41,32 @@ def test_invalid_login_shows_error(driver, base_url):
 def test_signup_form_accepts_new_user(driver, base_url, name, email):
     """
     tests the 'New User Signup' mini-form on the login page.
-    heads up -- if you re-run this a second time with the SAME email it'll
-    hit the duplicate-account branch instead (that's a separate test below).
-    if I need a totally clean run again I just bump the +tag, e.g. +capstone2.
+    email is timestamped per run so it's always a fresh, never-used address.
+
+    IMPORTANT: after clicking Signup, explicitly WAIT for the URL to change
+    to the account-info page instead of checking driver.current_url right
+    away. Checking immediately is a race condition -- the click can succeed
+    but the page hasn't finished redirecting yet, making the test fail even
+    though the signup actually worked. This bit us twice before we caught it.
     """
     login_page = LoginPage(driver)
     login_page.open_login_page(base_url)
     login_page.signup_start(name, email)
 
-    # after a fresh signup the site moves you to the "enter account info" page,
-    # so checking the url changed is basically all I need here.
+    try:
+        WebDriverWait(driver, 8).until(EC.url_contains("signup"))
+    except Exception:
+        pass  # let the assertion below report the real failure if it truly didn't redirect
+
     print(f"after signup attempt, landed on: {driver.current_url}")
     assert "signup" in driver.current_url.lower()
 
 
 def test_signup_duplicate_email_shows_error(driver, base_url):
-    """signing up twice with the same email should get rejected by the site.
-    depends on test_signup_form_accepts_new_user having already run once with
-    this same address -- not the cleanest way to chain tests, I know, but it
-    was the simplest way to actually get the duplicate-email state without
-    hardcoding some account that might not exist anymore."""
+    """signing up twice with the same email should get rejected by the site."""
     login_page = LoginPage(driver)
     login_page.open_login_page(base_url)
     login_page.signup_start("Suyam Lodha (dup test)", MY_TEST_EMAIL)
 
-    # TODO: this OR condition is a little loose -- ideally I'd only check
-    # for the actual error text, but wanted a fallback in case the page
-    # structure changes slightly between runs.
     assert login_page.is_visible(login_page.SIGNUP_ERROR, timeout=5) or \
         "signup" in driver.current_url.lower()

@@ -24,6 +24,9 @@ def pytest_runtest_makereport(item, call):
     """
     Runs after every test phase. If the 'call' phase fails, grab the
     driver from the test's fixtures and save a labelled screenshot.
+    Wrapped in try/except: if the browser window is already gone
+    (crashed, closed unexpectedly), don't let that crash the ENTIRE
+    test session -- just skip the screenshot and move on.
     """
     outcome = yield
     report = outcome.get_result()
@@ -31,7 +34,10 @@ def pytest_runtest_makereport(item, call):
     if report.when == "call" and report.failed:
         driver = item.funcargs.get("driver")
         if driver is not None:
-            os.makedirs(SCREENSHOT_DIR, exist_ok=True)
-            safe_name = item.name.replace("[", "_").replace("]", "").replace("/", "_")
-            path = os.path.join(SCREENSHOT_DIR, f"{safe_name}.png")
-            driver.save_screenshot(path)
+            try:
+                os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+                safe_name = item.name.replace("[", "_").replace("]", "").replace("/", "_")
+                path = os.path.join(SCREENSHOT_DIR, f"{safe_name}.png")
+                driver.save_screenshot(path)
+            except Exception as e:
+                print(f"couldn't save screenshot for {item.name}: {e}")
